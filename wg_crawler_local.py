@@ -44,7 +44,7 @@ class wg_crawler():
       
     '''
         
-    def run(self, start_page=1, end_page=10, path = 'material/', data_exists=False):
+    def run(self, start_page=1, end_page=10, path = 'material/', data_exists=True):
         # the default function, it will scrape some pages of the wg_gesucht and save the data in path
         if not data_exists:
             make_wg_gesucht_offline(start_page=start_page, end_page=end_page)
@@ -75,12 +75,21 @@ class wg_spider_local(wg_spider):
     proxy = None
     
     def get_surface_data(self, start_page=1, end_page=10, all_pages=False):
-        self.df = pd.DataFrame([], columns=['title', 'link', 'room_size', 'price', 'situation'])
+        self.df = pd.DataFrame([], columns=['title', 'link', 'room_size', 'price', 'situation',
+                               'renters_total', 'renters_male', 'renters_female', 'wanted_male', 
+                               'wanted_female', 'no_gender_limit'])
         titles = []
         links = []
         sizes = []
         prices = []
         situations = []
+        # The following six arrays describes the details of the situations
+        renters_total = []   #1
+        renters_male = []    #2
+        renters_female = []  #3
+        wanted_male = []     #4
+        wanted_female = []   #5
+        no_gender_limit = [] #6
         
         
         self.num_pages = end_page - start_page    
@@ -104,9 +113,8 @@ class wg_spider_local(wg_spider):
                 size, price = wg_spider_local.detail_info2size_and_price(detail_block)
                 sizes.append(size)
                 prices.append(price)
-                
-                situation_block = p.find('span', class_='noprint')
-                situations.append(situation_block['title'])
+
+                situations, renters_total, renters_male, renters_female, wanted_male, wanted_female, no_gender_limit = self.get_situation_details(p)
             
         self.df.title = titles
         self.df.link = links
@@ -118,6 +126,65 @@ class wg_spider_local(wg_spider):
         self.df.price = self.df.price.astype('float')
         
         self.df.situation = situations
+        self.df.renters_total = renters_total
+        self.df.renters_male = renters_male
+        self.df.renters_female = renters_female
+        self.df.wanted_male = wanted_male
+        self.df.wanted_female = wanted_female
+        self.no_gender_limit = no_gender_limit
+            
+        
+    def get_situation_details(post):
+        situations = []
+        renters_total = []   #1
+        renters_male = []    #2
+        renters_female = []  #3
+        wanted_male = []     #4
+        wanted_female = []   #5
+        no_gender_limit = [] #6
+        
+        # Extract the information about the current renter
+        situation_block = post.find('span', class_='noprint')
+        situation_title = situation_block['title']
+        situations.append(situation_title)
+        
+    
+        title_split = situation_title.split()
+        totalRenterString = title_split[0] # _er
+        renterGenderString = title_split[2] #(_w,_m)
+    
+        num_total_renter = totalRenterString[0:renterGenderString.find("er")-1]
+        num_female_renter = renterGenderString[renterGenderString.find("(")+1:renterGenderString.find("w")]
+        num_male_renter = renterGenderString[renterGenderString.find(",")+1:renterGenderString.find("m")]
+
+        renters_total.append(num_total_renter)
+        renters_male.append(num_male_renter)
+        renters_female.append(num_female_renter)
+    
+        # Extract the information about the wanted gender
+        wanted_tags = post.find_all('img', class_='noprint')
+        count = 0
+        num_wanted_male = 0
+        num_wanted_female = 0
+        num_no_gender_limit = 0
+        for wanted in wanted_tags:
+            count = count + 1
+            print(wanted["alt"] + str(count))
+            content = wanted["alt"]
+            if 'oder' in content:
+                num_no_gender_limit += 1
+            elif 'Mitbewohnerin' in content:
+                num_wanted_female += 1
+            elif 'Mitbewohner' in content:
+                num_wanted_male += 1
+            else:
+                print("Error in get_situation_details: keyword not found")
+    
+        wanted_male.append(num_wanted_male)
+        wanted_female.append(num_wanted_female)
+        no_gender_limit.append(num_no_gender_limit)
+        return situations, renters_total, renters_male, renters_female, wanted_male, wanted_female, no_gender_limit
+
         
     def get_details(self):
 

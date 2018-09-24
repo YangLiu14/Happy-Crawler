@@ -85,6 +85,13 @@ class wg_spider():
         sizes = []
         prices = []
         situations = []
+        # The following six arrays describes the details of the situations
+        renters_total = []   #1
+        renters_male = []    #2
+        renters_female = []  #3
+        wanted_male = []     #4
+        wanted_female = []   #5
+        no_gender_limit = [] #6
          
         self.num_pages = end_page - start_page    
         
@@ -110,8 +117,7 @@ class wg_spider():
                 
                 detail_block = p.find('div', class_= 'detail-size-price-wrapper').text
                 size, price = wg_spider.detail_info2size_and_price(detail_block)
-                sizes.append(size)
-                prices.append(price)
+
                 
                 situation_block = p.find('span', class_='noprint')
                 situations.append(situation_block['title'])
